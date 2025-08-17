@@ -1,0 +1,14 @@
+[package]
+name = "speedwatch-rs"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+base64 = "0.22.1"
+cfspeedtest = "1.4.1"
+clap = { version = "4.5.45", features = ["derive", "env"] }
+hostname = "0.4.1"
+miette = { version = "7.6.0", features = ["fancy"] }
+prometheus_remote_write = "0.2.1"
+reqwest = { version = "0.12.23", features = ["blocking", "rustls-tls"] }
+url = "2.5.4"
