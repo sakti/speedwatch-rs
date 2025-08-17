@@ -13,7 +13,7 @@ use clap::Parser;
 use miette::{IntoDiagnostic, Result, miette};
 use prometheus_remote_write::{LABEL_NAME, Label, Sample, TimeSeries, WriteRequest};
 use reqwest::blocking::Client;
-use tracing::{debug, info};
+use tracing::{debug, error, info};
 use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -154,7 +154,12 @@ where
         let start = Instant::now();
 
         // Execute the task
-        task()?;
+        match task() {
+            Ok(_) => (),
+            Err(err) => {
+                error!("Task failed: {}", err);
+            }
+        }
 
         // Sleep for remaining time to maintain precise interval
         let elapsed = start.elapsed();
