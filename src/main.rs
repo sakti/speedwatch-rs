@@ -1,4 +1,8 @@
-use std::{str::FromStr, time::Duration};
+use std::{
+    str::FromStr,
+    thread,
+    time::{Duration, Instant},
+};
 
 use base64::{Engine, engine::general_purpose::STANDARD};
 use cfspeedtest::{
@@ -36,13 +40,8 @@ struct Args {
     password_remote_write: String,
 }
 
-fn main() -> Result<()> {
-    let args = Args::parse();
+fn collect_and_push(args: &Args) -> Result<()> {
     let hostname = hostname::get().into_diagnostic()?;
-
-    println!("Hello {}!", args.interval);
-    println!("speedwatch-rs");
-    println!("Testing download speed with 10MB of payload");
 
     let download_speed = test_download(
         &reqwest::blocking::Client::new(),
@@ -143,5 +142,37 @@ fn main() -> Result<()> {
     // send the metric
     dbg!(time);
     dbg!(hostname);
+    Ok(())
+}
+
+pub fn execute_at_interval<F>(mut task: F, interval_minutes: u64) -> Result<()>
+where
+    F: FnMut() -> Result<()>,
+{
+    let interval = Duration::from_secs(interval_minutes * 60);
+
+    loop {
+        let start = Instant::now();
+
+        // Execute the task
+        task()?;
+
+        // Sleep for remaining time to maintain precise interval
+        let elapsed = start.elapsed();
+        if elapsed < interval {
+            thread::sleep(interval - elapsed);
+        }
+    }
+}
+
+fn main() -> Result<()> {
+    let args = Args::parse();
+    let interval = args.interval;
+    execute_at_interval(
+        || {
+            return collect_and_push(&args);
+        },
+        interval,
+    )?;
     Ok(())
 }
