@@ -13,6 +13,8 @@ use clap::Parser;
 use miette::{IntoDiagnostic, Result, miette};
 use prometheus_remote_write::{LABEL_NAME, Label, Sample, TimeSeries, WriteRequest};
 use reqwest::blocking::Client;
+use tracing::{debug, info};
+use tracing_subscriber::{EnvFilter, layer::SubscriberExt, util::SubscriberInitExt};
 
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
@@ -49,14 +51,11 @@ fn collect_and_push(args: &Args) -> Result<()> {
         OutputFormat::None, // don't write to stdout while running the test
     );
 
-    println!("download speed in mbit: {download_speed}");
-
     let (_, avg_latency) = run_latency_test(
         &reqwest::blocking::Client::new(),
         25,
         OutputFormat::None, // don't write to stdout while running the test
     );
-    println!("average latency in ms: {avg_latency}");
 
     // build write requests
     let time: i64 = std::time::SystemTime::now()
@@ -138,10 +137,10 @@ fn collect_and_push(args: &Args) -> Result<()> {
     req_builder = req_builder.body(body);
     let response = req_builder.send().into_diagnostic()?;
 
-    dbg!(response);
-    // send the metric
-    dbg!(time);
-    dbg!(hostname);
+    info!("time: {}", time);
+    info!("download speed in mbit: {download_speed}");
+    info!("average latency in ms: {avg_latency}");
+    debug!("response status: {}", response.status());
     Ok(())
 }
 
@@ -166,8 +165,16 @@ where
 }
 
 fn main() -> Result<()> {
+    tracing_subscriber::registry()
+        .with(EnvFilter::try_from_default_env().unwrap_or_else(|_| "speedwatch_rs=debug".into()))
+        .with(tracing_subscriber::fmt::layer())
+        .init();
+
     let args = Args::parse();
     let interval = args.interval;
+
+    info!("Starting speedwatch, with interval: {} minutes", interval);
+
     execute_at_interval(
         || {
             return collect_and_push(&args);
